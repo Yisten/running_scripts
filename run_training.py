@@ -25,6 +25,7 @@ if __name__=="__main__":
                  "trajectory": Trajectory,
                  "pdm_nonreactive_trajectory":PDMTrajectory}
     data_root = "/data2/nuplan_data/"
+    # data_root = "/rbs/guojy/ppm"
     train_path = "data/cache_train_pdm.txt"
     val_path = "data/cache_val_pdm.txt"
     train_batch_size = 16
@@ -33,7 +34,8 @@ if __name__=="__main__":
 
     pl.seed_everything(2025)
     model = instantiate(cfg.model)
-    checkpoint_callback = ModelCheckpoint(monitor="val_loss")
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss",save_weights_only=False,save_top_k=50)
     logger = TensorBoardLogger(save_dir="./output",name="lightning_logs")
     datamodule = NuplanDataModule(
         data_root=data_root,train_path=train_path,val_path=val_path,dataclass=dataclass,
@@ -45,10 +47,11 @@ if __name__=="__main__":
         callbacks=[checkpoint_callback],
         log_every_n_steps=50,
         logger = logger,
-        max_epochs = 32,
+        max_epochs = 128,
         limit_train_batches=12000,
+        amp_backend='apex',
         # precision=32,
-        # amp_level = "O2",
+        amp_level = "O2",
         # overfit_batches = 100,
         )
     trainer.fit(model, datamodule)

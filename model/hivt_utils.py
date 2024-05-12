@@ -880,7 +880,7 @@ class LocalEncoder(nn.Module):
             data.rotate_angles[:,self.historical_steps-1].unsqueeze(1)
         theta = theta.unsqueeze(-1)
 
-        return torch.concat(
+        return torch.cat(
             (lw, x, torch.cos(theta), torch.sin(theta), theta, v),
             dim=-1)
 
