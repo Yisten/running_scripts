@@ -9,11 +9,14 @@ from torch_geometric.typing import Size
 from torch_geometric.utils import softmax
 from torch_geometric.utils import subgraph
 import torch.nn.functional as F
-
+from torch_geometric.data import Batch
 from torch_geometric.data import Data
 from nuplan.planning.training.modeling.models.mha_lib import MultiheadAttention,TransformerEncoder
-
+# from torch_geometric.nn.pool import global_mean_pool
 from torch_scatter import scatter
+from nuplan.planning.training.modeling.models.dynamics_layers.kinematic_bicycle_layer_geometric_center import KinematicBicycleLayerGeometricCenter
+from nuplan.planning.training.modeling.models.dynamics_layers.deep_dynamical_system_layer import DeepDynamicalSystemLayer
+
 from nuplan.planning.training.modeling.models.transformer import position_encoding_utils
 import copy
 
@@ -1301,7 +1304,7 @@ class QADecoderLayer(MessagePassing):
 class MTRDecoder(MessagePassing):
 
     def __init__(self,
-                 local_channels: int, global_channels: int,
+                 input_dim: int, d_model: int,
                  future_steps: int, num_modes: int,
                  historical_steps:int, 
                  num_modes_pred:int = 1,
@@ -1312,8 +1315,8 @@ class MTRDecoder(MessagePassing):
                  num_learning_queries:int=15,
                  ) -> None:
         super(MTRDecoder, self).__init__()
-        self.input_size = global_channels
-        self.d_model = local_channels
+        self.input_size = input_dim
+        self.d_model = d_model
         self.num_future_frames = future_steps
         self.num_modes = num_modes
         self.historical_steps = historical_steps
@@ -1324,7 +1327,7 @@ class MTRDecoder(MessagePassing):
         self.learning_query_points = learning_query_points
         self.num_learning_queries = num_learning_queries
 
-        in_channels = local_channels+global_channels
+        in_channels = self.input_size *2
         # define the cross-attn layers
         self.in_proj_center_obj = nn.Sequential(
             nn.Linear(in_channels, self.d_model),
@@ -1370,7 +1373,7 @@ class MTRDecoder(MessagePassing):
         )
 
         # define the motion head
-        self.norm_before_fusion = nn.BatchNorm1d(self.d_model * 2+map_d_model)
+        # self.norm_before_fusion = nn.BatchNorm1d(self.d_model * 2+map_d_model)
         temp_layer = build_mlps(c_in=self.d_model * 2+map_d_model, mlp_channels=[self.d_model, self.d_model], ret_before_act=True)
         self.query_feature_fusion_layers = nn.ModuleList([copy.deepcopy(temp_layer) for _ in range(self.num_decoder_layers)])
 
@@ -1467,7 +1470,7 @@ class MTRDecoder(MessagePassing):
         intention_query, intention_points, intention_trajs = self.get_motion_query(
             center_objects_feature , len(center_objects_feature)
             )
-        query_content = torch.zeros_like(intention_query)
+        query_content = torch.zeros_like(intention_query,device=center_objects_feature.device)
         
         # use intention points as queries 
         self.forward_ret_dict['intention_points'] = intention_points.detach().permute(1, 0, 2)  # (num_center_objects, num_query, 2)
@@ -1496,7 +1499,7 @@ class MTRDecoder(MessagePassing):
                 kv_feature=obj_feature, kv_pos=obj_pos,kv_head=obj_head,
                 query_content=query_content, query_embed=intention_query,
                 # qk_edge=data['qa_idx'].cuda(),
-                qk_edge=data['qa_idx'],
+                qk_edge=data['qa_idx'].to(device),
                 attention_layer=self.obj_decoder_layers[layer_idx],
                 dynamic_query_center=dynamic_query_center,
                 layer_idx=layer_idx
@@ -1513,9 +1516,9 @@ class MTRDecoder(MessagePassing):
             ) 
 
             query_feature = torch.cat([center_objects_feature, obj_query_feature, map_query_feature], dim=-1)
-            query_feature = self.norm_before_fusion(
-                query_feature.flatten(start_dim=0, end_dim=1)
-                ).view(num_query, num_center_objects, -1) 
+            # query_feature = self.norm_before_fusion(
+            #     query_feature.flatten(start_dim=0, end_dim=1)
+            #     ).view(num_query, num_center_objects, -1) 
             # query_feature = torch.cat([center_objects_feature, obj_query_feature], dim=-1)
             query_content = self.query_feature_fusion_layers[layer_idx](
                 query_feature.flatten(start_dim=0, end_dim=1)
@@ -1787,7 +1790,7 @@ class MTRDecoder(MessagePassing):
             
         else:
             intention_trajs = None
-            intention_points = self.intention_points[:,None,:].repeat(1,num_ego,1)  # (num_query, num_center_objects, 2)
+            intention_points = self.intention_points[:,None,:].repeat(1,num_ego,1).to(ego_feature.device)  # (num_query, num_center_objects, 2)
 
         intention_query = position_encoding_utils.gen_sineembed_for_position(intention_points, hidden_dim=self.d_model)
         intention_query = self.intention_query_mlps(
@@ -1798,7 +1801,7 @@ class MTRDecoder(MessagePassing):
     def build_motion_query(self, d_model, learning_query_points=False,num_learning_queries=1):
         if learning_query_points:
             learning_query_points_mlp = build_mlps(
-                c_in=d_model, mlp_channels=[d_model, d_model, 2*13], ret_before_act=True
+                c_in=d_model, mlp_channels=[d_model, d_model, 2*25], ret_before_act=True
                 )
             learning_query_points_mlps = nn.ModuleList(
                 [copy.deepcopy(learning_query_points_mlp) for _ in range(num_learning_queries)]

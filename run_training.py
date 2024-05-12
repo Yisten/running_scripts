@@ -27,7 +27,7 @@ if __name__=="__main__":
     data_root = "/data2/nuplan_data/"
     train_path = "data/cache_train_pdm.txt"
     val_path = "data/cache_val_pdm.txt"
-    train_batch_size = 32
+    train_batch_size = 16
     val_batch_size = 128
     num_workers = 4
 

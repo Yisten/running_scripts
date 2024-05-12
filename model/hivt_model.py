@@ -4,7 +4,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from nuplan.planning.simulation.trajectory.trajectory_sampling import TrajectorySampling
-from nuplan.planning.training.modeling.models.hivt_utils import (
+from model.hivt_utils import (
     LocalEncoder,
     GlobalInteractor,
     MTRDecoder
@@ -73,10 +73,17 @@ class HiVT(pl.LightningModule):
             num_layers=num_global_layers, dropout=dropout,
             rotate=rotate, num_groups = num_groups
             )
-        
-
+        self.nonreactive_decode = True
+        if self.nonreactive_decode:
+            self.nonreactive_decoder = nn.Sequential(
+                nn.Linear(embed_dim, embed_dim), nn.LayerNorm(embed_dim), nn.ReLU(inplace=True),
+                nn.Linear(embed_dim, embed_dim), nn.LayerNorm(embed_dim), nn.ReLU(inplace=True),
+                nn.Linear(embed_dim, embed_dim), nn.LayerNorm(embed_dim), nn.ReLU(inplace=True),
+                nn.Linear(embed_dim, self.future_steps * 2)
+                )
+            
         self.decoder = MTRDecoder(
-                local_channels=embed_dim, global_channels=embed_dim,
+                input_dim=embed_dim, d_model=embed_dim//2,
                 future_steps=self.future_steps, num_modes=num_modes,
                 historical_steps=self.historical_steps,
                  num_modes_pred = 1,
@@ -87,15 +94,6 @@ class HiVT(pl.LightningModule):
                  num_learning_queries=num_learning_queries,
                 )
 
-        self.nonreactive_decode = True
-        if self.nonreactive_decode:
-            self.nonreactive_decoder = nn.Sequential(
-                nn.Linear(embed_dim, embed_dim), nn.LayerNorm(embed_dim), nn.ReLU(inplace=True),
-                nn.Linear(embed_dim, embed_dim), nn.LayerNorm(embed_dim), nn.ReLU(inplace=True),
-                nn.Linear(embed_dim, embed_dim), nn.LayerNorm(embed_dim), nn.ReLU(inplace=True),
-                nn.Linear(embed_dim, self.future_steps * 2)
-                )
-        
         self.ADE_scale = 2
         self.lam = 0.4
     def forward(self, feature_dict):
