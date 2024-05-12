@@ -1,0 +1,57 @@
+_target_: model.hivt_model.HiVT
+_convert_: 'all'
+
+# Model setup
+num_modes: 6
+rotate: 1
+node_dim: 2
+edge_dim: 2
+embed_dim: 128
+num_heads: 8
+dropout: 0.1
+num_temporal_layers: 4
+num_global_layers: 3
+num_decoder_layers: 6
+local_radius: 40
+input_window: 5
+step_size: 5
+if_train: 0
+opt_collision: 0
+limit_objects: 20
+# VectorMapFeatureBuilder
+vector_map_feature_radius: 50    # [m] The query radius scope relative to the current ego-pose.
+
+# Parameters for past trajectory
+past_trajectory_sampling:
+  _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
+  _convert_: 'all'
+  num_poses: 4      # target future poses
+  time_horizon: 1.5  # [s] time horizon of future poses
+
+# Parameters for predicted trajectory
+future_trajectory_sampling:
+  _target_: nuplan.planning.simulation.trajectory.trajectory_sampling.TrajectorySampling
+  _convert_: 'all'
+  num_poses: 40      # target future poses
+  time_horizon: 8.0  # [s] time horizon of future poses
+
+learning_query_points: 0
+num_learning_queries: 0
+pdm_builder: 0
+idm_policies:
+    _target_: nuplan_garage.planning.simulation.planner.pdm_planner.proposal.batch_idm_policy.BatchIDMPolicy
+    _convert_: 'all'
+    speed_limit_fraction: [0.00001,0.25,0.5,0.75,1.0] # Target velocity as fractions of current speed-limit
+    ego_speed_fraction: [0.00001,0.33,0.66,1.0,1.1]
+    min_limit_mps: 5.0
+    critical_speed: 6.0
+    fallback_target_velocity: 15.0 # Desired fallback velocity in free traffic [m/s] 
+    min_gap_to_lead_agent: 1.0 # Minimum relative distance to lead vehicle [m]
+    headway_time: 1.5 # Desired time headway. The minimum possible time to the vehicle in front [s]
+    accel_max: 1.5 # Maximum acceleration [m/s^2]
+    decel_max: 3.0 # Maximum deceleration (positive value) [m/s^2]
+lateral_offsets: [-3.0, 3.0] # Signed offsets from centerline (or null) [m]
+trajectory_samples:  25 # Number of samples in output trajectory
+proposal_samples: 25 # Number of samples in proposals 
+sample_interval: 0.2 # Interval of trajectory/proposal samples [s]  
+map_radius: 50 # Radius to consider around ego [m]

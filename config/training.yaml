@@ -1,0 +1,8 @@
+job_name: hivt_baseline_model
+py_func: train
+objective_aggregate_mode: mean
+# hydra:
+#   searchpath:
+#     - config/training
+defaults:
+  - model: pdm_query
