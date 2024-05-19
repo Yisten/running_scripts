@@ -1313,6 +1313,7 @@ class MTRDecoder(MessagePassing):
                  num_decoder_layers:int=4,
                  learning_query_points:bool=False,
                  num_learning_queries:int=15,
+                 pdm_query:bool=True,
                  ) -> None:
         super(MTRDecoder, self).__init__()
         self.input_size = input_dim
@@ -1334,7 +1335,7 @@ class MTRDecoder(MessagePassing):
             nn.ReLU(),
             nn.Linear(self.d_model, self.d_model),
         )
-
+        self.pdm_query = pdm_query
         # define the motion query
         self.intention_points, self.intention_query, self.intention_query_mlps, self.learning_query_points_mlps =\
               self.build_motion_query(self.d_model, learning_query_points, num_learning_queries)
@@ -1349,11 +1350,12 @@ class MTRDecoder(MessagePassing):
         )
 
         map_d_model = self.d_model
+        num_modes_bool = (not learning_query_points) and (not pdm_query)
         self.route_node_encoder, self.route_edge_encoder, self.map_decoder_layers =\
             self.build_route_decoder(
             in_channels=in_channels,
             d_model=map_d_model,
-            num_modes = self.intention_points.shape[0] if not learning_query_points else num_learning_queries,
+            num_modes = self.intention_points.shape[0] if num_modes_bool else num_learning_queries,
             nhead=attention_heads,
             dropout=dropout,
             num_decoder_layers=num_decoder_layers,
@@ -1468,7 +1470,7 @@ class MTRDecoder(MessagePassing):
             obj_pos, obj_head, data
             ):
         intention_query, intention_points, intention_trajs = self.get_motion_query(
-            center_objects_feature , len(center_objects_feature)
+            center_objects_feature , len(center_objects_feature), data
             )
         query_content = torch.zeros_like(intention_query,device=center_objects_feature.device)
         
@@ -1777,7 +1779,7 @@ class MTRDecoder(MessagePassing):
 
         return pred_scores_final, pred_trajs_final
     
-    def get_motion_query(self, ego_feature, num_ego):
+    def get_motion_query(self, ego_feature, num_ego, data):
         if self.learning_query_points:
             intention_traj = []
             for i in range(self.num_learning_queries):
@@ -1789,8 +1791,12 @@ class MTRDecoder(MessagePassing):
             intention_points = intention_trajs[...,-1,:]
             
         else:
-            intention_trajs = None
-            intention_points = self.intention_points[:,None,:].repeat(1,num_ego,1).to(ego_feature.device)  # (num_query, num_center_objects, 2)
+            if self.pdm_query:
+                intention_trajs = data['pdm_reference'].permute(1,0,2,3)
+                intention_points = data['pdm_reference'].permute(1,0,2,3)[:,:,-1,:2]
+            else:
+                intention_trajs = None
+                intention_points = self.intention_points[:,None,:].repeat(1,num_ego,1).to(ego_feature.device)  # (num_query, num_center_objects, 2)
 
         intention_query = position_encoding_utils.gen_sineembed_for_position(intention_points, hidden_dim=self.d_model)
         intention_query = self.intention_query_mlps(
@@ -1809,8 +1815,11 @@ class MTRDecoder(MessagePassing):
             intention_points = intention_query = None
         else:
             intention_points = intention_query = intention_query_mlps = learning_query_points_mlps = None
-            intention_points_file  = "./cluster_center_32.npy"
-            intention_points = torch.load(intention_points_file).float()
+            if self.pdm_query:
+                pass
+            else:
+                intention_points_file  = "./cluster_center_32.npy"
+                intention_points = torch.load(intention_points_file).float()
         intention_query_mlps = build_mlps(
             c_in=d_model, mlp_channels=[d_model, d_model], ret_before_act=True
         )

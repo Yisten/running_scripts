@@ -26,6 +26,17 @@ class NuplanDataModule(LightningDataModule):
         self.val_dataset = ProcessedDataset(
             self.data_root, val_data_logname_tokens, self.dataclass
         )
+    def setup(self, stage):
+        train_data_logname_tokens = get_logname_tokens(self.train_path)
+        val_data_logname_tokens = get_logname_tokens(self.val_path)
+
+        self.train_dataset = ProcessedDataset(
+            self.data_root, train_data_logname_tokens, self.dataclass
+        )
+        self.val_dataset = ProcessedDataset(
+            self.data_root, val_data_logname_tokens, self.dataclass
+        )
+    
     def train_dataloader(self):
         return DataLoader(
             self.train_dataset, shuffle=True,

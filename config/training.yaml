@@ -5,4 +5,4 @@ objective_aggregate_mode: mean
 #   searchpath:
 #     - config/training
 defaults:
-  - model: pdm_query
+  - model: mtr_pdm_query

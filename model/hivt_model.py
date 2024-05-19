@@ -34,6 +34,7 @@ class HiVT(pl.LightningModule):
         pdm_builder:bool=False,
         num_decoder_layers:int=4,
         max_epochs:int=32,
+        pdm_query: bool=True,
         **args
     )->None:
         self.save_hyperparameters()
@@ -92,6 +93,7 @@ class HiVT(pl.LightningModule):
                  num_decoder_layers=num_decoder_layers,
                  learning_query_points=learning_query_points,
                  num_learning_queries=num_learning_queries,
+                 pdm_query=pdm_query
                 )
 
         self.ADE_scale = 2
@@ -174,7 +176,7 @@ class HiVT(pl.LightningModule):
         data['route_edge'] = feature_dict['hivt_pyg'].route_data.x[:,:2]
         data['route_node'] = feature_dict['hivt_pyg'].route_data.x[:,2:]
         data['route_batch'] = feature_dict['hivt_pyg'].route_data.batch
-
+        data['pdm_reference'] = feature_dict['pdm_nonreactive_trajectory'].data
         #lane downsample
         if True:
             data['lane_traffic'] = data['lane_traffic'][::2]

@@ -47,7 +47,7 @@ if __name__=="__main__":
         callbacks=[checkpoint_callback],
         log_every_n_steps=50,
         logger = logger,
-        max_epochs = 128,
+        max_epochs = 32,
         limit_train_batches=12000,
         amp_backend='apex',
         # precision=32,

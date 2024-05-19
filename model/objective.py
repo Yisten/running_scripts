@@ -46,7 +46,7 @@ def get_imitation_loss(output, train_batch, future_steps,learning_query):
         cos_loss = (gt_heading.sin() - target_trajs[...,2].sin()).abs().mean(-1)
         
         soft_target = F.softmax(-0.5*dist, dim=-1).detach()
-        if intention_trajs is not None:
+        if learning_query:
             soft_target = 0.5*soft_target+(1-0.5)*soft_target2
             
         conf_loss = torch.sum(-soft_target * F.log_softmax(score, dim=-1), dim=-1)

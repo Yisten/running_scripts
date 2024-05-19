@@ -35,7 +35,8 @@ future_trajectory_sampling:
   num_poses: 25      # target future poses
   time_horizon: 5.0  # [s] time horizon of future poses
 
-learning_query_points: 1
+learning_query_points: 0
+pdm_query: 1
 num_learning_queries: 25
 pdm_builder: 1
 idm_policies:
@@ -50,7 +51,7 @@ idm_policies:
     headway_time: 1.5 # Desired time headway. The minimum possible time to the vehicle in front [s]
     accel_max: 1.5 # Maximum acceleration [m/s^2]
     decel_max: 3.0 # Maximum deceleration (positive value) [m/s^2]
-lateral_offsets: [-3.0, 3.0] # Signed offsets from centerline (or null) [m]
+lateral_offsets: [-3.0, -1.5, 1.5, 3.0] # Signed offsets from centerline (or null) [m]
 trajectory_samples:  25 # Number of samples in output trajectory
 proposal_samples: 25 # Number of samples in proposals 
 sample_interval: 0.2 # Interval of trajectory/proposal samples [s]  
